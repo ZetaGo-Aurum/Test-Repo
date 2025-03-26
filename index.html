@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi Mode: Jam Digital, Osiloskop & Mini Pencari Bulan, & Info Lunar/Orbit</title>
+  <!-- Menggunakan font digital -->
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron&display=swap" rel="stylesheet">
+  <!-- Tambahkan SunCalc untuk hitung posisi bulan & matahari -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.8.0/suncalc.min.js"></script>
+  <style>
+    /* RESET DASAR */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      background: linear-gradient(135deg, #0d0d0d, #1a1a1a);
+      font-family: 'Orbitron', sans-serif;
+      color: #fff;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    /* NAVBAR TETAP */
+    .navbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 1000;
+      padding: 10px;
+      box-shadow: 0 2px 10px rgba(57,255,20,0.3);
+      display: flex;
+      justify-content: center;
+    }
+    /* CONTAINER UTAMA */
+    .main-container {
+      width: 100%;
+      max-width: 500px;
+      margin: 70px auto 20px auto;
+      padding: 0 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    /* NAVIGASI MODE */
+    .mode-selector {
+      display: flex;
+      justify-content: space-around;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .mode-button {
+      background: rgba(255,255,255,0.1);
+      border: none;
+      border-radius: 10px;
+      padding: 10px 15px;
+      cursor: pointer;
+      color: #fff;
+      text-transform: uppercase;
+      box-shadow: 0 0 10px rgba(57,255,20,0.4);
+      transition: background 0.3s, transform 0.2s;
+      flex: 1 1 auto;
+      min-width: 100px;
+      font-size: 12px;
+    }
+    .mode-button:hover {
+      background: rgba(57,255,20,0.4);
+      transform: translateY(-2px);
+    }
+    .mode-button.active {
+      background: rgba(57,255,20,0.4);
+      box-shadow: 0 0 15px rgba(57,255,20,0.6);
+    }
+    .mode-section { display: none; }
+    .mode-section.active { display: block; }
+    
+    /* JAM DIGITAL */
+    .clock-container {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 15px;
+      padding: 15px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 15px rgba(57,255,20,0.4);
+    }
+    .clock-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+      gap: 10px;
+    }
+    .segment {
+      background: rgba(0,0,0,0.3);
+      padding: 8px;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(57,255,20,0.3);
+      transition: transform 0.2s;
+      cursor: pointer;
+    }
+    .segment:hover { transform: translateY(-5px); }
+    .segment .label {
+      font-size: 10px;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 3px;
+      text-transform: uppercase;
+    }
+    .segment .value {
+      font-size: 16px;
+      font-weight: bold;
+      color: #39ff14;
+      text-shadow: 0 0 5px #39ff14, 0 0 10px #39ff14;
+    }
+    
+    /* PANEL UNTUK OSILOSKOP, MINI PENCARI BULAN, & INFO */
+    .panel {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 15px;
+      padding: 10px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 15px rgba(57,255,20,0.4);
+      text-align: center;
+      margin-bottom: 15px;
+    }
+    .panel h2 {
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+    .indicator {
+      font-size: 14px;
+      margin-bottom: 5px;
+    }
+    canvas {
+      border-radius: 10px;
+      background: #000;
+      box-shadow: inset 0 0 10px #39ff14;
+      width: 100%;
+      height: auto;
+    }
+    
+    /* PANEL UNTUK INFORMASI TAMBAHAN (Lunar/Orbit) */
+    .info {
+      text-align: center;
+    }
+    .info .label {
+      font-size: 16px;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+    .info .value {
+      font-size: 20px;
+      font-weight: bold;
+      color: #39ff14;
+      text-shadow: 0 0 5px #39ff14, 0 0 10px #39ff14;
+    }
+    
+    /* MODAL POPUP */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1500;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.75);
+      justify-content: center;
+      align-items: center;
+      animation: fadeIn 0.3s;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .modal-content {
+      background: rgba(255,255,255,0.1);
+      padding: 20px;
+      border-radius: 15px;
+      width: 90%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 0 15px rgba(57,255,20,0.5);
+      position: relative;
+    }
+    .close {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 24px;
+      cursor: pointer;
+      color: #fff;
+    }
+    
+    /* MEDIA QUERY UNTUK MOBILE */
+    @media (max-width: 500px) {
+      .main-container {
+        margin-top: 130px;
+      }
+      .navbar {
+        padding: 5px;
+      }
+      .segment .value { font-size: 14px; }
+      .panel h2, .info .label { font-size: 14px; }
+      .info .value { font-size: 18px; }
+      .mode-button { 
+        padding: 8px 10px; 
+        font-size: 11px;
+        min-width: 90px;
+      }
+      .clock-grid {
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 8px;
+      }
+    }
+    
+    @media (max-width: 360px) {
+      .main-container {
+        margin-top: 140px;
+      }
+      .mode-button {
+        padding: 6px 8px;
+        font-size: 10px;
+        min-width: 80px;
+      }
+      .segment .label { font-size: 9px; }
+      .segment .value { font-size: 12px; }
+      .clock-grid {
+        grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+        gap: 6px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- NAVBAR TETAP -->
+  <div class="navbar">
+    <div class="mode-selector">
+      <button class="mode-button active" data-mode="clock">Jam Digital</button>
+      <button class="mode-button" data-mode="oscilloscope">Osiloskop &amp; Bulan</button>
+      <button class="mode-button" data-mode="info">Info Lunar/Orbit</button>
+    </div>
+  </div>
+  
+  <div class="main-container">
+    <!-- MODE 1: JAM DIGITAL -->
+    <div class="mode-section active" id="clock-mode">
+      <div class="clock-container">
+        <div class="clock-grid">
+          <div class="segment" data-info="Eon merupakan satuan waktu terbesar dalam skala geologis. Contoh: Holocene.">
+            <div class="label">Eon</div>
+            <div class="value" id="eon">Holocene</div>
+          </div>
+          <div class="segment" data-info="Era adalah fase yang lebih kecil dari Eon. Contoh: Cenozoic.">
+            <div class="label">Era</div>
+            <div class="value" id="era">Cenozoic</div>
+          </div>
+          <div class="segment" data-info="Periode adalah tahapan dalam era. Contoh: Quaternary.">
+            <div class="label">Periode</div>
+            <div class="value" id="period">Quaternary</div>
+          </div>
+          <div class="segment" data-info="Tahun: Kalender modern.">
+            <div class="label">Tahun</div>
+            <div class="value" id="year">2025</div>
+          </div>
+          <div class="segment" data-info="Bulan: Bulan dalam setahun.">
+            <div class="label">Bulan</div>
+            <div class="value" id="month">03</div>
+          </div>
+          <div class="segment" data-info="Hari: Hari dalam sebulan.">
+            <div class="label">Hari</div>
+            <div class="value" id="day">24</div>
+          </div>
+          <div class="segment" data-info="Jam: Format 24 jam saat ini.">
+            <div class="label">Jam</div>
+            <div class="value" id="hour">00</div>
+          </div>
+          <div class="segment" data-info="Menit: Saat ini.">
+            <div class="label">Menit</div>
+            <div class="value" id="minute">35</div>
+          </div>
+          <div class="segment" data-info="Detik: Saat ini.">
+            <div class="label">Detik</div>
+            <div class="value" id="second">00</div>
+          </div>
+          <div class="segment" data-info="Milidetik: Presisi tinggi (1000 ms = 1 detik).">
+            <div class="label">Milidetik</div>
+            <div class="value" id="millisecond">000</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- MODE 2: OSILOSKOP & MINI PENCARI BULAN -->
+    <div class="mode-section" id="oscilloscope-mode">
+      <!-- Panel Osiloskop -->
+      <div class="panel">
+        <h2>Osiloskop Waktu</h2>
+        <div class="indicator" id="oscIndicator">Sinyal: 0.00</div>
+        <canvas id="oscilloscope" width="350" height="100"></canvas>
+      </div>
+      <!-- Panel Mini Pencari Bulan -->
+      <div class="panel">
+        <h2>Mini Pencari Bulan</h2>
+        <canvas id="miniMoonFinder" width="350" height="350"></canvas>
+        <div class="indicator" id="moonFinderInfo">Menghitung...</div>
+      </div>
+    </div>
+    
+    <!-- MODE 3: INFO LUNAR/ORBIT -->
+    <div class="mode-section" id="info-mode">
+      <div class="panel">
+        <div class="info">
+          <div class="label">Nama Hari</div>
+          <div class="value" id="dayNameInfo">Senin</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="info">
+          <div class="label">Fase Bulan</div>
+          <div class="value" id="moonPhase">Bulan Purnama</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="info">
+          <div class="label">Orbit Bulan</div>
+          <div class="value" id="moonOrbits">0</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="info">
+          <div class="label">Orbit Bumi</div>
+          <div class="value" id="earthOrbits">0</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- MODAL POPUP UNTUK SEGMENT JAM DIGITAL -->
+  <div class="modal" id="modal">
+    <div class="modal-content">
+      <span class="close" id="closeModal">&times;</span>
+      <p id="modalText"></p>
+    </div>
+  </div>
+  
+  <script>
+    /* ----------- NAVIGASI MODE ----------- */
+    document.querySelectorAll('.mode-button').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.mode-button').forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        document.querySelectorAll('.mode-section').forEach(section => section.classList.remove('active'));
+        const mode = button.getAttribute('data-mode');
+        document.getElementById(mode + '-mode').classList.add('active');
+      });
+    });
+    
+    /* ----------- PEMBARUAN JAM DIGITAL ----------- */
+    function updateDigitalClock() {
+      const now = new Date();
+      document.getElementById('year').textContent = now.getFullYear();
+      const mon = now.getMonth() + 1;
+      document.getElementById('month').textContent = mon < 10 ? '0' + mon : mon;
+      const dat = now.getDate();
+      document.getElementById('day').textContent = dat < 10 ? '0' + dat : dat;
+      const hr = now.getHours();
+      document.getElementById('hour').textContent = hr < 10 ? '0' + hr : hr;
+      const min = now.getMinutes();
+      document.getElementById('minute').textContent = min < 10 ? '0' + min : min;
+      const sec = now.getSeconds();
+      document.getElementById('second').textContent = sec < 10 ? '0' + sec : sec;
+      const ms = now.getMilliseconds();
+      document.getElementById('millisecond').textContent = ms.toString().padStart(3, '0');
+    }
+    setInterval(updateDigitalClock, 10);
+    updateDigitalClock();
+    
+    /* ----------- MODAL POPUP ----------- */
+    const segments = document.querySelectorAll('.segment');
+    segments.forEach(segment => {
+      segment.addEventListener('click', function() {
+        const info = this.getAttribute('data-info');
+        document.getElementById('modalText').textContent = info;
+        document.getElementById('modal').style.display = 'flex';
+      });
+    });
+    document.getElementById('closeModal').addEventListener('click', function() {
+      document.getElementById('modal').style.display = 'none';
+    });
+    window.addEventListener('click', function(e) {
+      if (e.target == document.getElementById('modal')) {
+        document.getElementById('modal').style.display = 'none';
+      }
+    });
+    
+    /* ----------- OSILOSKOP ----------- */
+    const oscCanvas = document.getElementById('oscilloscope');
+    const oscCtx = oscCanvas.getContext('2d');
+    const oscBuffer = [];
+    const oscBufferLength = oscCanvas.width;
+    function updateOscilloscope() {
+      const now = performance.now();
+      const signal = Math.sin(now / 150) + (Math.random() - 0.5) * 0.2;
+      oscBuffer.push(signal);
+      if (oscBuffer.length > oscBufferLength) oscBuffer.shift();
+      oscCtx.clearRect(0, 0, oscCanvas.width, oscCanvas.height);
+      oscCtx.beginPath();
+      for (let i = 0; i < oscBuffer.length; i++) {
+        let amplitude = oscCanvas.height / 2 * 0.9;
+        let y = oscCanvas.height / 2 - oscBuffer[i] * amplitude;
+        let x = i;
+        if (i === 0) oscCtx.moveTo(x, y);
+        else oscCtx.lineTo(x, y);
+      }
+      oscCtx.strokeStyle = "#39ff14";
+      oscCtx.lineWidth = 2;
+      oscCtx.shadowColor = "#39ff14";
+      oscCtx.shadowBlur = 10;
+      oscCtx.stroke();
+      document.getElementById('oscIndicator').textContent = "Sinyal: " + signal.toFixed(2);
+      requestAnimationFrame(updateOscilloscope);
+    }
+    updateOscilloscope();
+    
+    /* ----------- MINI PENCARI BULAN DENGAN GPS ----------- */
+    let userLat = null, userLon = null;
+    
+    // Dapatkan lokasi pengguna via Geolocation API
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function(position) {
+        userLat = position.coords.latitude;
+        userLon = position.coords.longitude;
+        console.log("Lokasi didapat:", userLat, userLon);
+      }, function(error) {
+        console.error("Error mendapatkan lokasi:", error);
+      });
+    } else {
+      console.error("Browser tidak mendukung Geolocation");
+    }
+    
+    const miniMoonCanvas = document.getElementById("miniMoonFinder");
+    const miniCtx = miniMoonCanvas.getContext("2d");
+    const miniRadius = miniMoonCanvas.width / 2;
+    const miniCx = miniMoonCanvas.width / 2;
+    const miniCy = miniMoonCanvas.height / 2;
+    
+    function updateMiniMoonFinder() {
+      const now = new Date();
+      let azimuthMoonDeg, elevationMoonDeg, azimuthSunDeg, elevationSunDeg;
+      
+      // Jika data lokasi tersedia, gunakan SunCalc untuk hitung posisi nyata
+      if (userLat !== null && userLon !== null) {
+        // Hitung posisi Bulan
+        const moonPos = SunCalc.getMoonPosition(now, userLat, userLon);
+        // SunCalc mengembalikan azimuth dari selatan, jadi kita konversi ke utara:
+        azimuthMoonDeg = ((moonPos.azimuth + Math.PI) * 180 / Math.PI) % 360;
+        elevationMoonDeg = moonPos.altitude * 180 / Math.PI;
+        // Hitung posisi Matahari
+        const sunPos = SunCalc.getPosition(now, userLat, userLon);
+        azimuthSunDeg = ((sunPos.azimuth + Math.PI) * 180 / Math.PI) % 360;
+        elevationSunDeg = sunPos.altitude * 180 / Math.PI;
+      } else {
+        // Fallback dummy (jika belum dapat lokasi)
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        azimuthMoonDeg = (hours * 15 + minutes * 0.25) % 360;
+        elevationMoonDeg = 30 + 20 * Math.sin((hours/24) * Math.PI);
+        azimuthSunDeg = (hours * 15 + minutes * 0.5) % 360;
+        elevationSunDeg = 30 + 20 * Math.sin((hours/12) * Math.PI);
+      }
+      
+      // Bersihkan canvas
+      miniCtx.clearRect(0, 0, miniMoonCanvas.width, miniMoonCanvas.height);
+      
+      // Gambar latar kompas
+      miniCtx.save();
+      miniCtx.translate(miniCx, miniCy);
+      
+      // Gambar lingkaran luar kompas
+      miniCtx.beginPath();
+      miniCtx.arc(0, 0, miniRadius - 10, 0, 2 * Math.PI);
+      miniCtx.fillStyle = "#111";
+      miniCtx.fill();
+      miniCtx.strokeStyle = "#39ff14";
+      miniCtx.lineWidth = 2;
+      miniCtx.stroke();
+      
+      // Gambar garis panduan tiap 30°
+      for(let angle = 0; angle < 360; angle += 30) {
+        let rad = angle * Math.PI / 180;
+        let x = (miniRadius - 20) * Math.sin(rad);
+        let y = -(miniRadius - 20) * Math.cos(rad);
+        miniCtx.beginPath();
+        miniCtx.moveTo(0, 0);
+        miniCtx.lineTo(x, y);
+        miniCtx.strokeStyle = "rgba(57,255,20,0.5)";
+        miniCtx.lineWidth = (angle % 90 === 0) ? 2 : 1;
+        miniCtx.stroke();
+      }
+      
+      // Gambar label kompas (N, NE, E, SE, S, SW, W, NW)
+      const directions = [
+        { label: "N", angle: 0 },
+        { label: "NE", angle: 45 },
+        { label: "E", angle: 90 },
+        { label: "SE", angle: 135 },
+        { label: "S", angle: 180 },
+        { label: "SW", angle: 225 },
+        { label: "W", angle: 270 },
+        { label: "NW", angle: 315 }
+      ];
+      miniCtx.font = "14px Orbitron";
+      miniCtx.fillStyle = "#39ff14";
+      miniCtx.textAlign = "center";
+      miniCtx.textBaseline = "middle";
+      directions.forEach(dir => {
+        let rad = dir.angle * Math.PI / 180;
+        let x = (miniRadius - 30) * Math.sin(rad);
+        let y = -(miniRadius - 30) * Math.cos(rad);
+        miniCtx.fillText(dir.label, x, y);
+      });
+      miniCtx.restore();
+      
+      // Fungsi untuk konversi azimuth ke titik marker
+      function computeMarkerPoint(azimuth, offset) {
+        let rad = azimuth * Math.PI / 180;
+        let x = (miniRadius - offset) * Math.sin(rad);
+        let y = -(miniRadius - offset) * Math.cos(rad);
+        return {x, y};
+      }
+      
+      // Gambar marker Bulan
+      const moonMarker = computeMarkerPoint(azimuthMoonDeg, 40);
+      miniCtx.beginPath();
+      miniCtx.arc(miniCx + moonMarker.x, miniCy + moonMarker.y, 10, 0, 2 * Math.PI);
+      miniCtx.fillStyle = "#FFD700"; // Kuning untuk Bulan
+      miniCtx.fill();
+      miniCtx.strokeStyle = "#FFD700";
+      miniCtx.lineWidth = 2;
+      miniCtx.stroke();
+      miniCtx.font = "12px Orbitron";
+      miniCtx.fillStyle = "#FFD700";
+      miniCtx.textAlign = "center";
+      miniCtx.fillText(`B: ${azimuthMoonDeg.toFixed(1)}°`, miniCx + moonMarker.x, miniCy + moonMarker.y - 15);
+      
+      // Gambar marker Matahari
+      const sunMarker = computeMarkerPoint(azimuthSunDeg, 40);
+      miniCtx.beginPath();
+      miniCtx.arc(miniCx + sunMarker.x, miniCy + sunMarker.y, 10, 0, 2 * Math.PI);
+      miniCtx.fillStyle = "#FF4500"; // Oranye untuk Matahari
+      miniCtx.fill();
+      miniCtx.strokeStyle = "#FF4500";
+      miniCtx.lineWidth = 2;
+      miniCtx.stroke();
+      miniCtx.font = "12px Orbitron";
+      miniCtx.fillStyle = "#FF4500";
+      miniCtx.textAlign = "center";
+      miniCtx.fillText(`M: ${azimuthSunDeg.toFixed(1)}°`, miniCx + sunMarker.x, miniCy + sunMarker.y - 15);
+      
+      // Tampilkan nilai elevasi pada tengah bawah canvas
+      miniCtx.font = "14px Orbitron";
+      miniCtx.fillStyle = "#39ff14";
+      miniCtx.textAlign = "center";
+      miniCtx.fillText(`Elevasi Bulan: ${elevationMoonDeg.toFixed(1)}°`, miniCx, miniCy + miniRadius/2);
+      miniCtx.fillText(`Elevasi Matahari: ${elevationSunDeg.toFixed(1)}°`, miniCx, miniCy + miniRadius/2 + 20);
+      
+      // Perbarui informasi teks di bawah canvas
+      document.getElementById("moonFinderInfo").textContent =
+        `Bulan: Azimuth ${azimuthMoonDeg.toFixed(1)}°, Elevasi ${elevationMoonDeg.toFixed(1)}° | Matahari: Azimuth ${azimuthSunDeg.toFixed(1)}°, Elevasi ${elevationSunDeg.toFixed(1)}°`;
+    }
+    setInterval(updateMiniMoonFinder, 1000);
+    updateMiniMoonFinder();
+    
+    /* ----------- INFORMASI TAMBAHAN: Info Lunar/Orbit ----------- */
+    function updateAdditionalDetails() {
+      const now = new Date();
+      const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+      document.getElementById("dayNameInfo").textContent = dayNames[now.getDay()];
+      
+      const moonCycle = 29.53;
+      const referenceNewMoon = new Date("2000-01-06T18:14:00Z");
+      const daysSinceReference = (now - referenceNewMoon) / (1000 * 60 * 60 * 24);
+      const currentMoonPhase = daysSinceReference % moonCycle;
+      let phaseName = "";
+      if (currentMoonPhase < 1) phaseName = "Bulan Baru";
+      else if (currentMoonPhase < 7.4) phaseName = "Kuartal Pertama";
+      else if (currentMoonPhase < 14.8) phaseName = "Bulan Purnama";
+      else if (currentMoonPhase < 22.1) phaseName = "Kuartal Terakhir";
+      else phaseName = "Bulan Baru";
+      document.getElementById("moonPhase").textContent = phaseName;
+      
+      const moonOrbits = Math.floor(daysSinceReference / moonCycle);
+      document.getElementById("moonOrbits").textContent = moonOrbits;
+      
+      const earthOrbits = now.getFullYear() - 2000;
+      document.getElementById("earthOrbits").textContent = earthOrbits;
+     }
+    setInterval(updateAdditionalDetails, 1000);
+    updateAdditionalDetails();
+  </script> 
+</body>
+</html>
